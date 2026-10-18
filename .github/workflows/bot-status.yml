@@ -1,0 +1,27 @@
+name: Bot status
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark bot offline if heartbeat stopped
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          HC_API_KEY: ${{ secrets.HC_API_KEY }}
+          HC_CHECK: ${{ secrets.HC_CHECK_UUID }}
+        run: |
+          STATUS=$(curl -s -H "X-Api-Key: $HC_API_KEY" \
+            "https://healthchecks.io/api/v3/checks/$HC_CHECK" | jq -r .status)
+          echo "Heartbeat status: $STATUS"
+          if [ "$STATUS" = "down" ]; then
+            TXT="🔴 The bot is currently offline. Please try again later."
+            curl -s "https://api.telegram.org/bot$BOT_TOKEN/setMyDescription" \
+              --data-urlencode "description=$TXT" > /dev/null
+            curl -s "https://api.telegram.org/bot$BOT_TOKEN/setMyShortDescription" \
+              --data-urlencode "short_description=$TXT" > /dev/null
+            echo "Offline notice set."
+          fi
